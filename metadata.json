@@ -1,0 +1,10 @@
+{
+  "name": "CogniCare",
+  "description": "AI-Powered Cognitive Assistance and Memory Care Platform for Elderly Dementia Patients in the North Eastern Region",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
