@@ -318,7 +318,7 @@ export const CaregiverDashboard: React.FC<CaregiverDashboardProps> = ({
         </div>
 
         <p className="text-xs text-purple-200/80">
-          Type a caring message. Sathi AI will immediately speak it to Arpan in Assamese/English with warm family tone.
+          Type a caring message. RemI Voice Assistant will immediately speak it to Arpan with a warm family tone.
         </p>
 
         <form onSubmit={handleSendVoicePrompt} className="space-y-3">
@@ -333,10 +333,10 @@ export const CaregiverDashboard: React.FC<CaregiverDashboardProps> = ({
           <div className="flex items-center justify-between">
             {msgSentNotice ? (
               <span className="text-xs text-emerald-400 font-bold">
-                ✓ Message spoken to patient by Sathi!
+                ✓ Message spoken to patient by RemI!
               </span>
             ) : (
-              <span className="text-xs text-purple-300/60">Delivered via Sathi Speech Engine</span>
+              <span className="text-xs text-purple-300/60">Delivered via RemI Speech Engine</span>
             )}
 
             <button

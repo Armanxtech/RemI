@@ -30,6 +30,7 @@ import {
   LogIn,
   Database,
   Edit3,
+  LogOut,
 } from 'lucide-react';
 import { PatientProfile, LanguageCode, UserRole } from '../types';
 import { soundService } from '../services/soundService';
@@ -51,7 +52,10 @@ interface ProfileScreenProps {
   onToggleHighContrast: () => void;
   onUpdatePatient?: (updated: Partial<PatientProfile>) => void;
   onOpenSignIn?: () => void;
+  onLogout?: () => void;
+  userEmail?: string;
 }
+
 
 const AVATAR_PRESETS = [
   {
@@ -106,6 +110,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onToggleHighContrast,
   onUpdatePatient,
   onOpenSignIn,
+  onLogout,
+  userEmail,
 }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showPinCodeModal, setShowPinCodeModal] = useState(false);
@@ -430,14 +436,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   onChangeLanguage(lang.code);
                   const greeting =
                     lang.code === 'as'
-                      ? 'নমস্কাৰ, মই সাথী। আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?'
+                      ? 'নমস্কাৰ, মই RemI। আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?'
                       : lang.code === 'bn'
-                      ? 'নমস্কার, আমি সাথী। আপনাকে কিভাবে সাহায্য করতে পারি?'
+                      ? 'নমস্কার, আমি RemI। আপনাকে কিভাবে সাহায্য করতে পারি?'
                       : lang.code === 'hi'
-                      ? 'नमस्ते, मैं साथी हूँ। आज आप कैसा महसूस कर रहे हैं?'
+                      ? 'नमस्ते, मैं RemI हूँ। आज आप कैसा महसूस कर रहे हैं?'
                       : lang.code === 'mni'
-                      ? 'খুরুমজরি, ঐ সাথীনি। কদাইদা তেংবাংগদগে?'
-                      : 'Hello, I am Sathi. How may I assist you today?';
+                      ? 'খুরুমজরি, ঐ RemIনি। কদাইদা তেংবাংগদগে?'
+                      : 'Hello, I am RemI. How may I assist you today?';
                   soundService.speak(greeting, lang.code);
                 }}
                 className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -558,32 +564,56 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </button>
       </div>
 
-      {/* Account & Profile Switcher (Sign In / Register New Patient) */}
+      {/* Account & Profile Session (Supabase Auth & Sign Out) */}
       <div className="p-5 rounded-3xl bg-[#1C172E] border border-purple-900/50 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
             <Database className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white">Sign In & Patient Accounts</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-white">Supabase Account Session</h4>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-600/40 text-emerald-300 font-semibold">
+                Connected
+              </span>
+            </div>
             <p className="text-xs text-purple-300/75">
-              Sign in with existing credentials or register a new patient profile into Supabase.
+              {userEmail ? `Logged in as ${userEmail}` : `Active profile: ${patient.name}`}
             </p>
           </div>
         </div>
 
-        <button
-          id="profile-open-signin-btn"
-          onClick={() => {
-            soundService.playClick();
-            if (onOpenSignIn) onOpenSignIn();
-          }}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-950/50 active:scale-95 transition-all shrink-0 flex items-center gap-2"
-        >
-          <LogIn className="w-4 h-4" />
-          <span>Sign In / New Account</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            id="profile-open-signin-btn"
+            onClick={() => {
+              soundService.playClick();
+              if (onOpenSignIn) onOpenSignIn();
+            }}
+            className="px-4 py-2.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Switch profile or sign in with another account"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Switch Profile</span>
+          </button>
+
+          {onLogout && (
+            <button
+              id="profile-logout-btn"
+              onClick={() => {
+                soundService.playClick();
+                onLogout();
+              }}
+              className="px-4 py-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800/50 text-rose-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-rose-950/40"
+              title="Sign Out from RemI"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span>Log Out</span>
+            </button>
+          )}
+        </div>
       </div>
+
 
       {/* Switch to Caregiver View */}
       <div className="p-5 rounded-3xl bg-gradient-to-r from-purple-950/70 via-[#1D1630] to-indigo-950/70 border border-purple-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">

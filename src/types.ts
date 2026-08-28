@@ -213,3 +213,33 @@ export interface CognitiveProgressLog {
   gamesPlayed: number;
   reactionTimeMs: number;
 }
+
+export type AuthRoute = 'welcome' | 'signin' | 'signup' | 'onboarding' | 'dashboard';
+
+export interface SupabaseUserProfile {
+  id?: string;
+  user_id: string;
+  email?: string;
+  full_name: string;
+  age: number;
+  role: 'patient' | 'caretaker' | 'caregiver';
+  preferred_language: LanguageCode;
+  region: string;
+  pincode?: string;
+  onboarding_completed: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AIChatMessage {
+  id: string;
+  user_id?: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  language?: LanguageCode;
+  timestamp: string;
+  toolData?: {
+    type?: 'reminders' | 'profile' | 'games' | 'progress';
+    data?: any;
+  };
+}

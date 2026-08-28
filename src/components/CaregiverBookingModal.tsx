@@ -41,7 +41,7 @@ const SERVICE_OPTIONS = [
   },
   {
     type: 'cognitive_companion' as const,
-    title: 'Regional Cognitive Companion (Sathi)',
+    title: 'Regional Cognitive Companion (RemI)',
     rate: '₹400 / 4-hr Session',
     desc: 'Bilingual memory games, Assamese/Bengali reminiscence sessions, and photo album reliving.',
   },

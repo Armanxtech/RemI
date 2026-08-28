@@ -94,7 +94,7 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
             <h3 className="text-base font-bold text-white">AI Reminiscence Storyteller</h3>
           </div>
           <span className="text-xs text-purple-300 font-semibold px-2 py-0.5 rounded-full bg-purple-900/50">
-            Powered by Sathi AI
+            Powered by RemI AI
           </span>
         </div>
 

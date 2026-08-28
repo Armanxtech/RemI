@@ -54,7 +54,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
     primaryCaregiverName: 'Sunita Das',
     primaryCaregiverPhone: '+91 9876543210',
     primaryCaregiverRelationship: 'Daughter',
-    preferredLanguage: 'as',
+    preferredLanguage: 'en',
     medicalConditions: 'Mild Cognitive Impairment (Early Stage)',
   });
 
@@ -138,7 +138,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
             </div>
             <div className="text-left">
               <h2 className="text-xl font-extrabold text-white tracking-tight">
-                CogniCare
+                RemI
               </h2>
               <div className="flex items-center gap-1.5 text-[10px] text-purple-300 font-semibold">
                 <Database className="w-3 h-3 text-emerald-400" />
@@ -248,7 +248,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
                 type="submit"
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-900/50 flex items-center justify-center gap-2 active:scale-95 transition-all"
               >
-                <span>Enter CogniCare</span>
+                <span>Enter RemI</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
@@ -361,7 +361,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
                     </label>
                     <input
                       type="email"
-                      placeholder="family.care@cognicare.in"
+                      placeholder="family.care@remi.in"
                       value={signUpData.email}
                       onChange={(e) =>
                         setSignUpData({ ...signUpData, email: e.target.value })
@@ -464,15 +464,15 @@ export const SignInModal: React.FC<SignInModalProps> = ({
                 {/* Preferred Language */}
                 <div>
                   <label className="text-[11px] text-purple-300 font-semibold block mb-0.5">
-                    Preferred Language for Sathi Voice Assistant
+                    Preferred Language for RemI Voice Assistant
                   </label>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                     {[
+                      { code: 'en', label: 'English' },
                       { code: 'as', label: 'অসমীয়া' },
                       { code: 'bn', label: 'বাংলা' },
                       { code: 'hi', label: 'हिन्दी' },
                       { code: 'mni', label: 'মৈতৈলোন্' },
-                      { code: 'en', label: 'English' },
                     ].map((lang) => (
                       <button
                         key={lang.code}

@@ -482,3 +482,136 @@ export async function saveMedicationRefillToSupabase(refillOrder: {
 
   return { success: true, data: record, source: 'local_fallback' };
 }
+
+/**
+ * Fetch a user's profile from Supabase 'profiles' table
+ */
+export async function fetchUserProfileFromSupabase(
+  userId: string
+): Promise<import('../types').SupabaseUserProfile | null> {
+  if (!userId) return null;
+
+  // 1. Try direct Supabase query
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!error && data) {
+      console.log('✅ Found profile in Supabase "profiles" table:', data);
+      return data as import('../types').SupabaseUserProfile;
+    }
+
+    // Also check if primary key is id = userId
+    if (error) {
+      const { data: byIdData, error: byIdError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!byIdError && byIdData) {
+        return byIdData as import('../types').SupabaseUserProfile;
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase profiles query notice:', err);
+  }
+
+  // 2. Check local storage cache
+  try {
+    const cached = localStorage.getItem(`remi_profile_${userId}`);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    console.warn('Local storage profile error:', e);
+  }
+
+  return null;
+}
+
+/**
+ * Save / Upsert user profile to Supabase 'profiles' table
+ */
+export async function saveUserProfileToSupabase(
+  profile: Partial<import('../types').SupabaseUserProfile> & { user_id: string }
+): Promise<SupabaseResponse<import('../types').SupabaseUserProfile>> {
+  const now = new Date().toISOString();
+  const payload: import('../types').SupabaseUserProfile = {
+    user_id: profile.user_id,
+    full_name: profile.full_name || 'RemI User',
+    age: profile.age || 70,
+    role: (profile.role as any) || 'patient',
+    preferred_language: profile.preferred_language || 'en',
+    region: profile.region || 'Tezpur, Assam',
+    pincode: profile.pincode || '784001',
+    onboarding_completed: profile.onboarding_completed ?? true,
+    updated_at: now,
+  };
+
+  // 1. Save locally for instant offline cache
+  try {
+    localStorage.setItem(`remi_profile_${profile.user_id}`, JSON.stringify(payload));
+    localStorage.setItem('remi_current_user_profile', JSON.stringify(payload));
+  } catch (e) {
+    console.warn('Local storage profile write error:', e);
+  }
+
+  // 2. Direct Supabase upsert
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: profile.user_id,
+          user_id: profile.user_id,
+          full_name: payload.full_name,
+          age: payload.age,
+          role: payload.role,
+          preferred_language: payload.preferred_language,
+          region: payload.region,
+          pincode: payload.pincode,
+          onboarding_completed: payload.onboarding_completed,
+          updated_at: now,
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (!error) {
+      console.log('✅ Successfully saved profile to Supabase "profiles":', data);
+      return { success: true, data: data || payload, source: 'supabase_direct' };
+    } else {
+      console.warn('Supabase profiles upsert fallback notice:', error.message);
+      // Try insert if upsert had conflict constraint issue
+      const { data: insData, error: insErr } = await supabase
+        .from('profiles')
+        .insert([{
+          user_id: profile.user_id,
+          full_name: payload.full_name,
+          age: payload.age,
+          role: payload.role,
+          preferred_language: payload.preferred_language,
+          region: payload.region,
+          pincode: payload.pincode,
+          onboarding_completed: payload.onboarding_completed,
+          updated_at: now,
+        }])
+        .select()
+        .maybeSingle();
+
+      if (!insErr) {
+        return { success: true, data: insData || payload, source: 'supabase_direct' };
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase saveUserProfile error:', err);
+  }
+
+  return { success: true, data: payload, source: 'local_fallback' };
+}
+

@@ -14,8 +14,8 @@ import {
 } from '../types';
 
 export const LANGUAGES: LanguageOption[] = [
-  { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া', locale: 'as-IN' },
   { code: 'en', name: 'English', nativeName: 'English', locale: 'en-US' },
+  { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া', locale: 'as-IN' },
   { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', locale: 'bn-IN' },
   { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', locale: 'hi-IN' },
   { code: 'mni', name: 'Manipuri (Meitei)', nativeName: 'মৈতৈলোন্', locale: 'mni-IN' },
@@ -38,7 +38,7 @@ export const INITIAL_PATIENT: PatientProfile = {
     relationship: 'Daughter',
     phone: '+91 9876543210',
   },
-  preferredLanguage: 'as',
+  preferredLanguage: 'en',
   fontSize: 'large',
   soundEnabled: true,
   highContrast: false,
@@ -454,7 +454,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     waterReminder: 'এগিলাচ পানী খোৱাৰ সময়',
     caregiverDashboard: 'অভিভাৱক পৰ্টেল',
     switchRole: 'ৰোল পৰিৱৰ্তন',
-    speakWithSathi: 'সাথীৰ লগত কথা পাতক',
+    speakWithSathi: 'RemI ভইচ সহায়কৰ সৈতে কথা পাতক',
   },
   bn: {
     goodMorning: 'সুপ্রভাত',
@@ -476,7 +476,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     waterReminder: 'এক গ্লাস জল পানের সময়',
     caregiverDashboard: 'কেয়ারগিভার ড্যাশবোর্ড',
     switchRole: 'ভূমিকা পরিবর্তন',
-    speakWithSathi: 'সাথীর সাথে কথা বলুন',
+    speakWithSathi: 'RemI ভয়েস সহকারীর সাথে কথা বলুন',
   },
   hi: {
     goodMorning: 'सुप्रभात',
@@ -498,7 +498,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     waterReminder: 'एक गिलास पानी पीने का समय',
     caregiverDashboard: 'केयरगिवर डैशबोर्ड',
     switchRole: 'रोल बदलें',
-    speakWithSathi: 'साथी से बात करें',
+    speakWithSathi: 'RemI वॉइस सहायक से बात करें',
   },
   en: {
     goodMorning: 'Good morning',
@@ -520,7 +520,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     waterReminder: 'Time for a glass of water',
     caregiverDashboard: 'Caregiver Portal',
     switchRole: 'Switch View',
-    speakWithSathi: 'Talk with Sathi',
+    speakWithSathi: 'Talk with RemI Voice Assistant',
   },
   mni: {
     goodMorning: 'নুমিৎ খাবোক',
@@ -542,7 +542,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     waterReminder: 'ঈশিং থকপগী মতম',
     caregiverDashboard: 'কেয়ারগিভর পোর্তেল',
     switchRole: 'শন্দোকপা',
-    speakWithSathi: 'সাথীগা ৱারী শানবা',
+    speakWithSathi: 'RemI ৱারী শানবা',
   },
 };
 

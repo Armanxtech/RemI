@@ -53,6 +53,145 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "CogniCare API", time: new Date().toISOString() });
 });
 
+// ==========================================
+// 1. FULL MULTILINGUAL AI VOICE ASSISTANT ENDPOINT
+// ==========================================
+app.post("/api/gemini/assistant", async (req, res) => {
+  try {
+    const {
+      message,
+      patientName,
+      language = "en",
+      conversationHistory = [],
+      userContext = {},
+    } = req.body;
+
+    const langNameMap: Record<string, string> = {
+      as: "Assamese (অসমীয়া)",
+      bn: "Bengali (বাংলা)",
+      hi: "Hindi (हिन्दी)",
+      en: "English",
+      mni: "Manipuri / Meitei",
+    };
+
+    const activeLanguageName = langNameMap[language] || "English";
+    const patientDisplayName = patientName || userContext?.profile?.name || "Friend";
+
+    // Detect if this is a request about specific tools
+    const queryLower = (message || "").toLowerCase();
+    let detectedTool: "reminders" | "profile" | "games" | "progress" | undefined;
+    if (queryLower.includes("reminder") || queryLower.includes("medicine") || queryLower.includes("ritual") || queryLower.includes("ঔষধ") || queryLower.includes("দাওয়াই") || queryLower.includes("दवाई")) {
+      detectedTool = "reminders";
+    } else if (queryLower.includes("performance") || queryLower.includes("game") || queryLower.includes("score") || queryLower.includes("খেল") || queryLower.includes("খেলা") || queryLower.includes("स्कोर")) {
+      detectedTool = "games";
+    } else if (queryLower.includes("progress") || queryLower.includes("summary") || queryLower.includes("vitality") || queryLower.includes("উন্নতি") || queryLower.includes("प्रगति")) {
+      detectedTool = "progress";
+    } else if (queryLower.includes("profile") || queryLower.includes("who am i") || queryLower.includes("name") || queryLower.includes("পৰিচয়") || queryLower.includes("পরিচয়")) {
+      detectedTool = "profile";
+    }
+
+    if (!geminiApiKey) {
+      // High-quality contextual fallback generation based on query & language
+      let reply = "";
+      const pendingMeds = userContext?.reminders?.pendingMedications || [];
+      const pendingRituals = userContext?.reminders?.pendingRituals || [];
+
+      if (detectedTool === "reminders") {
+        if (language === "as") {
+          reply = pendingMeds.length > 0
+            ? `নমস্কাৰ ${patientDisplayName}! আজি আপোনাৰ বাকী থকা ঔষধবোৰ হʼল: ${pendingMeds.map((m: any) => `${m.name} (${m.scheduledTime})`).join(", ")}। অনুগ্ৰহ কৰি সময়মতে গ্ৰহণ কৰক আৰু পানী খাবলৈ নাপাহৰিব।`
+            : `নমস্কাৰ ${patientDisplayName}! আজিৰ বাবে আপোনাৰ সকলো প্ৰাথমিক ঔষধ সম্পূৰ্ণ হৈছে। আপুনি বৰ সুন্দৰভাৱে দিনটো পৰিচালনা কৰিছে।`;
+        } else if (language === "bn") {
+          reply = pendingMeds.length > 0
+            ? `নমস্কার ${patientDisplayName}! আজ আপনার বাকি থাকা ওষুধগুলি হলো: ${pendingMeds.map((m: any) => `${m.name} (${m.scheduledTime})`).join(", ")}। দয়া করে সময়ের সাথে জল সহযোগে গ্রহণ করুন।`
+            : `নমস্কার ${patientDisplayName}! আজকের জন্য আপনার সমস্ত ওষুধ ও রুটিন সুন্দরভাবে সম্পন্ন হয়েছে।`;
+        } else if (language === "hi") {
+          reply = pendingMeds.length > 0
+            ? `नमस्ते ${patientDisplayName} जी! आज आपकी बाकी दवाइयां हैं: ${pendingMeds.map((m: any) => `${m.name} (${m.scheduledTime})`).join(", ")}। कृपया समय पर पानी के साथ लें।`
+            : `नमस्ते ${patientDisplayName} जी! आज की सभी निर्धारित दवाइयां और दिनचर्या पूरी हो चुकी हैं। बहुत बढ़िया!`;
+        } else {
+          reply = pendingMeds.length > 0
+            ? `Hello ${patientDisplayName}! Your remaining scheduled medications for today are: ${pendingMeds.map((m: any) => `${m.name} at ${m.scheduledTime}`).join(", ")}. Please take them with water.`
+            : `Hello ${patientDisplayName}! All scheduled medications and rituals for today are marked as complete. You are doing wonderfully!`;
+        }
+      } else if (detectedTool === "games" || detectedTool === "progress") {
+        const completion = userContext?.progressSummary?.completionPercentage || 75;
+        if (language === "as") {
+          reply = `আজি আপোনাৰ RemI ক্ৰিয়াকলাপৰ স্কোৰ বৰ সুন্দৰ (${completion}%)! আপুনি মেমৰি আৰু ফ’কাচ খেলত নিৰন্তৰ অংশগ্ৰহণ কৰি মস্তিষ্ক সক্ৰিয় ৰাখিছে।`;
+        } else if (language === "bn") {
+          reply = `আজ আপনার RemI এক্টিভিটি স্কোর দারুণ (${completion}%)! আপনি নিয়মিত গেমস ও রুটিন অনুশীলন করে মনকে চনমনে রাখছেন।`;
+        } else if (language === "hi") {
+          reply = `आज आपका RemI गतिविधि स्कोर बहुत अच्छा है (${completion}%)! आपकी नियमितता और अभ्यास सराहनीय है।`;
+        } else {
+          reply = `Your RemI cognitive activity score today is strong at ${completion}%! You are making steady progress with your daily memory and focus sessions.`;
+        }
+      } else {
+        const fallbacks: Record<string, string> = {
+          as: `নমস্কাৰ ${patientDisplayName}! মই আপোনাৰ RemI ভইচ সহায়ক। মই আপোনাক ঔষধৰ সময়, মগজুৰ খেল, আৰু দৈনন্দিন সহায়ত সকলো সময়তে সহায় কৰিবলৈ সাজু আছোঁ। আপুনি আজি কেনে অনুভৱ কৰিছে?`,
+          bn: `নমস্কার ${patientDisplayName}! আমি আপনার RemI ভয়েস সহকারী। ওষুধ মনে রাখা, মেমরি গেমস খেলা বা যে কোনো প্রশ্নের জন্য আমি আপনার সাথে আছি। আজ আপনাকে কিভাবে সাহায্য করতে পারি?`,
+          hi: `नमस्ते ${patientDisplayName} जी! मैं आपकी RemI वॉइस सहायक हूँ। मैं आपकी दैनिक दवाइयों, दिमागी खेलों और दिनचर्या में सहायता के लिए यहाँ हूँ। आज मैं आपकी क्या मदद कर सकती हूँ?`,
+          en: `Hello ${patientDisplayName}! I am your RemI Voice Assistant. I am here to help you review daily reminders, explain cognitive games, and provide encouraging support. How can I assist you right now?`,
+        };
+        reply = fallbacks[language] || fallbacks.en;
+      }
+
+      return res.json({
+        reply,
+        toolType: detectedTool,
+        toolData: detectedTool ? userContext[detectedTool] : null,
+      });
+    }
+
+    // Server-Side Gemini Execution with Security & Safety Guardrails
+    const ai = getAiClient();
+    const systemPrompt = `You are "RemI Voice Assistant" (the multilingual AI voice and cognitive companion for the RemI app), an empathetic, culturally respectful, and clear AI cognitive voice and text assistant for elderly users and cognitive health care recipients in India.
+
+TARGET USER:
+- Patient Name: ${patientDisplayName}
+- Requested Response Language: ${activeLanguageName} (CRITICAL: You MUST reply entirely in this language using its authentic native script!).
+- User Profile: ${JSON.stringify(userContext?.profile || {})}
+- Today's Reminders & Medications: ${JSON.stringify(userContext?.reminders || {})}
+- Cognitive Game History: ${JSON.stringify(userContext?.gameHistory || {})}
+- Progress & Vitality Summary: ${JSON.stringify(userContext?.progressSummary || {})}
+
+STRICT ETHICAL & MEDICAL SAFETY DIRECTIVES:
+1. NON-DIAGNOSTIC SCOPE: You are an assistive companion, NOT a doctor or medical diagnostic system. NEVER claim to diagnose dementia, Alzheimer's, or any neurological disease.
+2. OBJECTIVE LANGUAGE: Always use phrases such as "Your recent activity performance...", "Your cognitive activity score...", "According to your scheduled plan...".
+3. CLINICAL CONCERNS & EMERGENCIES: If the user reports severe chest pain, shortness of breath, sudden falls, or acute emergencies, advise them immediately to press the red SOS emergency button in the app or contact their caregiver/emergency service.
+4. TONE: Warm, encouraging, patient, clear, and reassuring. Speak in 2 to 4 concise, easy-to-read sentences. Avoid long technical jargon or overwhelming lists.
+5. ACCURACY: Keep names, medicine dosages, times, and dates completely accurate based on the provided user context.`;
+
+    const chatHistoryFormatted = conversationHistory
+      .slice(-6)
+      .map((msg: any) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
+      .join("\n");
+
+    const fullPrompt = `${chatHistoryFormatted ? `Recent conversation context:\n${chatHistoryFormatted}\n\n` : ""}User's message: "${message}"\n\nPlease answer the user in ${activeLanguageName}:`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: fullPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.5,
+      },
+    });
+
+    const reply = response.text || "Hello! I am here with you. How can I assist you with your day?";
+    res.json({
+      reply,
+      toolType: detectedTool,
+      toolData: detectedTool ? userContext[detectedTool] : null,
+    });
+  } catch (error) {
+    console.error("AI Assistant endpoint error:", error);
+    res.status(500).json({
+      reply: "Hello dear friend! Take a gentle, deep breath. I am right here with you. How can I help you today?",
+      error: String(error),
+    });
+  }
+});
+
 // AI Voice & Text Companion for Dementia Patients (Multilingual NER context)
 app.post("/api/gemini/companion", async (req, res) => {
   try {
@@ -61,17 +200,17 @@ app.post("/api/gemini/companion", async (req, res) => {
     if (!geminiApiKey) {
       // Graceful regional fallback response if API key is not yet set
       const fallbacks: Record<string, string> = {
-        as: `নমস্কাৰ ${patientName || "আৰ্পণদা"}! মই আপোনাৰ কগনিকিয়াৰ সাথী। আপুনি আজি ভালদৰে আছেনে? আহক আমি এটা সোৱৰণ খেল খেলোঁ বা চাহ খাই বিশ্ৰাম লওঁ।`,
-        bn: `নমস্কার ${patientName || "দাদু"}! আমি আপনার কগনিকেয়ার বন্ধু। আজ আপনার শরীর কেমন আছে? চলুন কিছু পুরোনো সুন্দর স্মৃতি মনে করি।`,
-        hi: `नमस्ते ${patientName || "जी"}! मैं आपका कॉग्निकेयर साथी हूँ। आज आप कैसा महसूस कर रहे हैं? चलिए आज का दिन आनंद से बिताते हैं।`,
-        en: `Hello ${patientName || "friend"}! I am your CogniCare companion. How are you feeling right now? Would you like to play a gentle game or listen to a story from Assam?`
+        as: `নমস্কাৰ ${patientName || "আৰ্পণদা"}! মই আপোনাৰ RemI সংগী। আপুনি আজি ভালদৰে আছেনে? আহক আমি এটা সোৱৰণ খেল খেলোঁ বা চাহ খাই বিশ্ৰাম লওঁ।`,
+        bn: `নমস্কার ${patientName || "দাদু"}! আমি আপনার RemI বন্ধু। আজ আপনার শরীর কেমন আছে? চলুন কিছু পুরোনো সুন্দর স্মৃতি মনে করি।`,
+        hi: `नमस्ते ${patientName || "जी"}! मैं आपका RemI साथी हूँ। आज आप कैसा महसूस कर रहे हैं? चलिए आज का दिन आनंद से बिताते हैं।`,
+        en: `Hello ${patientName || "friend"}! I am your RemI companion. How are you feeling right now? Would you like to play a gentle game or listen to a story from Assam?`
       };
       const reply = fallbacks[language] || fallbacks.en;
       return res.json({ reply, voiceTone: "gentle_warm" });
     }
 
     const ai = getAiClient();
-    const systemPrompt = `You are "Sathi", an empathetic, gentle, and culturally attuned AI cognitive care companion designed specifically for elderly dementia and Alzheimer's patients in the North Eastern Region of India (Assam, Meghalaya, Manipur, Mizoram, Nagaland, Tripura, Arunachal Pradesh).
+    const systemPrompt = `You are "RemI", an empathetic, gentle, and culturally attuned AI cognitive care voice companion designed specifically for elderly dementia and Alzheimer's patients in the North Eastern Region of India (Assam, Meghalaya, Manipur, Mizoram, Nagaland, Tripura, Arunachal Pradesh).
 Patient name: ${patientName || "Arpan Das"}.
 Language requested: ${language || "English"} (Support Assamese, Bengali, Manipuri, Hindi, or English based on user's preference).
 Recent activity context: ${JSON.stringify(recentActivities || {})}.
@@ -87,7 +226,7 @@ Guidelines:
 
     const response = await ai.models.generateContent({
       model: "gemini-3.7-flash",
-      contents: message || "Hello Sathi, good morning.",
+      contents: message || "Hello RemI, good morning.",
       config: {
         systemInstruction: systemPrompt,
         temperature: 0.7,

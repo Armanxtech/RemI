@@ -21,6 +21,14 @@ import { AppointmentBookingModal } from './components/AppointmentBookingModal';
 import { CaregiverBookingModal } from './components/CaregiverBookingModal';
 import { AppointmentsHubModal } from './components/AppointmentsHubModal';
 
+// Auth & Onboarding Flow
+import { WelcomeScreen } from './components/auth/WelcomeScreen';
+import { SignUpScreen } from './components/auth/SignUpScreen';
+import { SignInScreen } from './components/auth/SignInScreen';
+import { OnboardingScreen } from './components/auth/OnboardingScreen';
+import { RemILogo } from './components/auth/RemILogo';
+import { supabase } from './services/supabaseClient';
+
 import {
   initialPatientProfile,
   initialDailyRituals,
@@ -48,6 +56,8 @@ import {
   UserRole,
   MedicalAppointment,
   CaregiverBooking,
+  AuthRoute,
+  SupabaseUserProfile,
 } from './types';
 
 import { soundService } from './services/soundService';
@@ -55,12 +65,20 @@ import { syncCaregiverData } from './services/aiService';
 import {
   fetchAppointmentsFromSupabase,
   fetchBookingsFromSupabase,
+  fetchUserProfileFromSupabase,
 } from './services/supabaseService';
 import { getWeatherForLocation, PinCodeInfo } from './data/weatherData';
 import { PinCodeSetupModal } from './components/PinCodeSetupModal';
+import { Brain, Sparkles, Mic } from 'lucide-react';
 
 export default function App() {
-  // --- STATE MANAGEMENT ---
+  // --- AUTHENTICATION & ONBOARDING ROUTE STATE ---
+  const [authRoute, setAuthRoute] = useState<AuthRoute>('welcome');
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [authUser, setAuthUser] = useState<{ id: string; email: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<SupabaseUserProfile | null>(null);
+
+  // --- EXISTING DASHBOARD STATE MANAGEMENT ---
   const [patient, setPatient] = useState<PatientProfile>(initialPatientProfile);
   const [currentRole, setCurrentRole] = useState<UserRole>('patient');
   const [activeTab, setActiveTab] = useState<NavTab | 'profile' | 'health-records'>('home');
@@ -90,6 +108,161 @@ export default function App() {
   const [showAppointmentModal, setShowAppointmentModal] = useState<boolean>(false);
   const [showCaregiverBookingModal, setShowCaregiverBookingModal] = useState<boolean>(false);
   const [showAppointmentsHubModal, setShowAppointmentsHubModal] = useState<boolean>(false);
+
+  // --- 1. SUPABASE AUTH SESSION RESOLUTION ---
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        const session = data?.session;
+        if (!session?.user) {
+          // Check local cached session
+          const cachedUserStr = localStorage.getItem('remi_active_user');
+          if (cachedUserStr) {
+            try {
+              const cachedUser = JSON.parse(cachedUserStr);
+              setAuthUser(cachedUser);
+              const cachedProfile = await fetchUserProfileFromSupabase(cachedUser.id);
+              if (cachedProfile && cachedProfile.onboarding_completed) {
+                setUserProfile(cachedProfile);
+                setPatient((prev) => ({
+                  ...prev,
+                  name: cachedProfile.full_name || prev.name,
+                  age: cachedProfile.age || prev.age,
+                  preferredLanguage: cachedProfile.preferred_language || prev.preferredLanguage,
+                  location: cachedProfile.region || prev.location,
+                  pincode: cachedProfile.pincode || prev.pincode,
+                }));
+                if (cachedProfile.role === 'caretaker' || cachedProfile.role === 'caregiver') {
+                  setCurrentRole('caretaker');
+                }
+                setAuthRoute('dashboard');
+                setAuthLoading(false);
+                return;
+              }
+            } catch {}
+          }
+
+          setAuthUser(null);
+          setAuthRoute('welcome');
+          setAuthLoading(false);
+          return;
+        }
+
+        const user = session.user;
+        const userInfo = { id: user.id, email: user.email || '' };
+        setAuthUser(userInfo);
+        localStorage.setItem('remi_active_user', JSON.stringify(userInfo));
+
+        // Check if user has completed onboarding in 'profiles' table
+        const profile = await fetchUserProfileFromSupabase(user.id);
+        if (profile && profile.onboarding_completed) {
+          setUserProfile(profile);
+          setPatient((prev) => ({
+            ...prev,
+            name: profile.full_name || prev.name,
+            age: profile.age || prev.age,
+            preferredLanguage: profile.preferred_language || prev.preferredLanguage,
+            location: profile.region || prev.location,
+            pincode: profile.pincode || prev.pincode,
+          }));
+          if (profile.role === 'caretaker' || profile.role === 'caregiver') {
+            setCurrentRole('caretaker');
+          }
+          setAuthRoute('dashboard');
+        } else {
+          // User exists but has not finished profile setup
+          setAuthRoute('onboarding');
+        }
+      } catch (err) {
+        console.warn('Auth session check notice:', err);
+        setAuthRoute('welcome');
+      } finally {
+        if (isMounted) {
+          setAuthLoading(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    // Listen to Supabase Auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!isMounted) return;
+        if (event === 'SIGNED_OUT' || !session) {
+          setAuthUser(null);
+          setUserProfile(null);
+          localStorage.removeItem('remi_active_user');
+          setAuthRoute('welcome');
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          const user = session.user;
+          const userInfo = { id: user.id, email: user.email || '' };
+          setAuthUser(userInfo);
+          localStorage.setItem('remi_active_user', JSON.stringify(userInfo));
+
+          const profile = await fetchUserProfileFromSupabase(user.id);
+          if (profile && profile.onboarding_completed) {
+            setUserProfile(profile);
+            setPatient((prev) => ({
+              ...prev,
+              name: profile.full_name || prev.name,
+              age: profile.age || prev.age,
+              preferredLanguage: profile.preferred_language || prev.preferredLanguage,
+              location: profile.region || prev.location,
+              pincode: profile.pincode || prev.pincode,
+            }));
+            if (profile.role === 'caretaker' || profile.role === 'caregiver') {
+              setCurrentRole('caretaker');
+            }
+            setAuthRoute('dashboard');
+          } else {
+            setAuthRoute('onboarding');
+          }
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  // --- 2. AUTH HANDLERS ---
+  const handleLogout = async () => {
+    soundService.playClick();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Sign out notice:', e);
+    }
+    setAuthUser(null);
+    setUserProfile(null);
+    localStorage.removeItem('remi_active_user');
+    setAuthRoute('welcome');
+  };
+
+  const handleCompleteOnboarding = (savedProfile: SupabaseUserProfile) => {
+    setUserProfile(savedProfile);
+    setPatient((prev) => ({
+      ...prev,
+      name: savedProfile.full_name || prev.name,
+      age: savedProfile.age || prev.age,
+      preferredLanguage: savedProfile.preferred_language || prev.preferredLanguage,
+      location: savedProfile.region || prev.location,
+      pincode: savedProfile.pincode || prev.pincode,
+    }));
+    if (savedProfile.role === 'caretaker' || savedProfile.role === 'caregiver') {
+      setCurrentRole('caretaker');
+    }
+    setAuthRoute('dashboard');
+  };
+
 
   // Initial fetch from Supabase
   useEffect(() => {
@@ -473,6 +646,107 @@ export default function App() {
   const pendingRitualsCount = rituals.filter((r) => !r.completed).length;
   const pendingMedNames = medications.filter((m) => !m.completed && !m.isAsNeeded).map((m) => m.name);
 
+  // --- RENDER 1: AUTH LOADING SPINNER ---
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0E0A17] flex flex-col items-center justify-center p-6 text-white text-center relative overflow-hidden">
+        <div className="absolute w-72 h-72 rounded-full bg-purple-600/20 blur-[100px] pointer-events-none animate-pulse" />
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <RemILogo size="lg" withIcon showSubtitle />
+          <div className="flex items-center gap-2 mt-4 text-purple-300 text-sm font-medium">
+            <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+            <span>Connecting to RemI Cognitive Cloud...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDER 2: WELCOME ONBOARDING CAROUSEL ---
+  if (authRoute === 'welcome') {
+    return (
+      <WelcomeScreen
+        onGetStarted={() => {
+          soundService.playClick();
+          setAuthRoute('signup');
+        }}
+        onSignIn={() => {
+          soundService.playClick();
+          setAuthRoute('signin');
+        }}
+      />
+    );
+  }
+
+  // --- RENDER 3: SIGN UP SCREEN ---
+  if (authRoute === 'signup') {
+    return (
+      <SignUpScreen
+        onSuccessSignUp={(userData) => {
+          setAuthUser(userData);
+          setAuthRoute('onboarding');
+        }}
+        onNavigateToSignIn={() => {
+          soundService.playClick();
+          setAuthRoute('signin');
+        }}
+        onNavigateToWelcome={() => {
+          soundService.playClick();
+          setAuthRoute('welcome');
+        }}
+      />
+    );
+  }
+
+  // --- RENDER 4: SIGN IN SCREEN ---
+  if (authRoute === 'signin') {
+    return (
+      <SignInScreen
+        onSuccessSignIn={(user, profile) => {
+          setAuthUser(user);
+          if (profile && profile.onboarding_completed) {
+            setUserProfile(profile);
+            setPatient((prev) => ({
+              ...prev,
+              name: profile.full_name || prev.name,
+              age: profile.age || prev.age,
+              preferredLanguage: profile.preferred_language || prev.preferredLanguage,
+              location: profile.region || prev.location,
+              pincode: profile.pincode || prev.pincode,
+            }));
+            if (profile.role === 'caretaker' || profile.role === 'caregiver') {
+              setCurrentRole('caretaker');
+            }
+            setAuthRoute('dashboard');
+          } else {
+            setAuthRoute('onboarding');
+          }
+        }}
+        onNavigateToSignUp={() => {
+          soundService.playClick();
+          setAuthRoute('signup');
+        }}
+        onNavigateToWelcome={() => {
+          soundService.playClick();
+          setAuthRoute('welcome');
+        }}
+      />
+    );
+  }
+
+  // --- RENDER 5: PROFILE & ONBOARDING SETUP ---
+  if (authRoute === 'onboarding') {
+    return (
+      <OnboardingScreen
+        userId={authUser?.id || 'usr_local'}
+        initialFullName={authUser?.email ? authUser.email.split('@')[0] : patient.name}
+        initialEmail={authUser?.email || ''}
+        onCompleteOnboarding={handleCompleteOnboarding}
+      />
+    );
+  }
+
+  // --- RENDER 6: EXISTING MAIN DASHBOARD (PRESERVED 100%) ---
   return (
     <div
       className={`min-h-screen bg-[#110D1D] text-slate-100 selection:bg-purple-500 selection:text-white transition-all ${
@@ -494,6 +768,7 @@ export default function App() {
         onOpenProfile={() => setActiveTab('profile')}
         onOpenAppointments={() => setShowAppointmentsHubModal(true)}
         onOpenSignIn={() => setShowSignInModal(true)}
+        onLogout={handleLogout}
         appointmentsCount={appointments.length + caregiverBookings.length}
         fontSize={fontSize}
         onCycleFontSize={() => {
@@ -536,6 +811,63 @@ export default function App() {
                   language={patient.preferredLanguage}
                   onOpenPinCodeSetup={() => setShowPinCodeModal(true)}
                 />
+
+                {/* AI Voice Assistant Quick Action Card */}
+                <div
+                  id="home-ai-assistant-quick-card"
+                  onClick={() => {
+                    soundService.playClick();
+                    setShowVoiceAssistant(true);
+                  }}
+                  className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-900/60 via-[#1E1736] to-indigo-950/60 border border-purple-700/50 hover:border-purple-500/70 shadow-lg shadow-purple-950/40 cursor-pointer flex items-center justify-between gap-3 group transition-all"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center shadow-md shadow-purple-900/60 group-hover:scale-105 transition-transform flex-shrink-0">
+                      <Sparkles className="w-6 h-6 text-purple-100 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-white text-base">
+                          {patient.preferredLanguage === 'as'
+                            ? 'RemI এআই সহায়কৰ সৈতে কথা পাতক'
+                            : patient.preferredLanguage === 'bn'
+                            ? 'RemI এআই সহকারীর সাথে কথা বলুন'
+                            : patient.preferredLanguage === 'hi'
+                            ? 'RemI एआई सहायक से बात करें'
+                            : 'Talk with RemI Voice Assistant'}
+                        </h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-900/80 text-purple-200 border border-purple-700/60 font-semibold">
+                          Voice & Chat
+                        </span>
+                      </div>
+                      <p className="text-xs text-purple-200/80 mt-0.5">
+                        {patient.preferredLanguage === 'as'
+                          ? 'ঔষধৰ সময়, মগজুৰ খেল বা যিকোনো সহায়ৰ বাবে মাইকত কওক'
+                          : patient.preferredLanguage === 'bn'
+                          ? 'ওষুধের সময়, মেমরি গেমস বা যে কোনো সহায়তার জন্য কথা বলুন'
+                          : patient.preferredLanguage === 'hi'
+                          ? 'दवाइयों के समय, दिमागी खेलों और दिनचर्या में सहायता पाएं'
+                          : 'Ask about your reminders, memory games, or speak via microphone'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    id="home-open-ai-assistant-btn"
+                    className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md flex-shrink-0"
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span className="hidden xs:inline">
+                      {patient.preferredLanguage === 'as'
+                        ? 'কওক'
+                        : patient.preferredLanguage === 'bn'
+                        ? 'বলুন'
+                        : patient.preferredLanguage === 'hi'
+                        ? 'बोलें'
+                        : 'Speak'}
+                    </span>
+                  </button>
+                </div>
 
                 {/* Circular Activity Goal Card */}
                 <ActivityGoalCard
@@ -635,11 +967,14 @@ export default function App() {
                 onToggleHighContrast={() => setHighContrast(!highContrast)}
                 onUpdatePatient={handleUpdatePatient}
                 onOpenSignIn={() => setShowSignInModal(true)}
+                onLogout={handleLogout}
+                userEmail={authUser?.email}
               />
             )}
           </>
         )}
       </main>
+
 
       {/* Persistent Bottom Navigation */}
       {currentRole === 'patient' && (
@@ -677,10 +1012,21 @@ export default function App() {
       {showVoiceAssistant && (
         <VoiceAssistantModal
           onClose={() => setShowVoiceAssistant(false)}
+          patient={patient}
           patientName={patient.name}
           language={patient.preferredLanguage}
+          onChangeLanguage={(lang) => handleUpdatePatient({ preferredLanguage: lang })}
           pendingMedications={pendingMedNames}
+          pendingMeds={pendingMedNames}
           location={patient.location}
+          rituals={rituals}
+          medications={medications}
+          games={games}
+          userId={authUser?.id}
+          onOpenSOS={() => {
+            setShowVoiceAssistant(false);
+            setShowSOSModal(true);
+          }}
         />
       )}
 

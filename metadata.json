@@ -1,6 +1,6 @@
 {
-  "name": "CogniCare",
-  "description": "AI-Powered Cognitive Assistance and Memory Care Platform for Elderly Dementia Patients in the North Eastern Region",
+  "name": "RemI",
+  "description": "RemI - AI-Powered Cognitive Assistance, Reminiscence and Memory Care Platform with RemI Voice Assistant",
   "requestFramePermissions": [
     "microphone"
   ],
